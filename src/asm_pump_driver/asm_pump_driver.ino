@@ -13,6 +13,13 @@ const float threshold_on = 1.2; // Voltage threshold to turn relay ON
 const float threshold_off = 0.8; // Voltage threshold to turn relay OFF
 bool relayState = false; // Current relay state
 
+// Rolling statistics (sliding window of 10 samples)
+const int WINDOW_SIZE = 10;
+float     readings[WINDOW_SIZE];
+int       readIndex   = 0;
+int       sampleCount = 0;
+float     readingSum  = 0.0;
+
 // Create an instance of the OLED display
 Adafruit_SSD1306 display(128, 64, &Wire, -1);
 
@@ -72,20 +79,60 @@ void loop() {
         Serial.println(relayState ? "ON" : "OFF");
     }
 
-    // Display the current value and relay state on the OLED
+    // Compute rolling statistics
+    readingSum -= readings[readIndex];
+    readings[readIndex] = current;
+    readingSum += current;
+    readIndex = (readIndex + 1) % WINDOW_SIZE;
+    if (sampleCount < WINDOW_SIZE) sampleCount++;
+
+    float rollingAvg = readingSum / sampleCount;
+    float rollingMax = readings[0];
+    float rollingMin = readings[0];
+    for (int i = 1; i < sampleCount; i++) {
+        if (readings[i] > rollingMax) rollingMax = readings[i];
+        if (readings[i] < rollingMin) rollingMin = readings[i];
+    }
+
+    Serial.print("Stats | Avg: "); Serial.print(rollingAvg, 3);
+    Serial.print(" Max: ");        Serial.print(rollingMax, 3);
+    Serial.print(" Min: ");        Serial.println(rollingMin, 3);
+
+    // Update OLED display
     display.clearDisplay();
     display.setTextSize(1);
     display.setTextColor(SSD1306_WHITE);
-    
+
     display.setCursor(0, 0);
-    display.print("Current: ");
-    display.print(current);
+    display.print("Volt: ");
+    display.print(current, 3);
     display.print(" V");
-    
-    display.setCursor(0, 10);
+
+    display.setCursor(0, 8);
     display.print("Relay: ");
     display.print(relayState ? "ON" : "OFF");
-    
+
+    display.setCursor(0, 16);
+    display.print("ON:");
+    display.print(threshold_on, 2);
+    display.print(" OFF:");
+    display.print(threshold_off, 2);
+
+    display.setCursor(0, 24);
+    display.print("Avg: ");
+    display.print(rollingAvg, 3);
+    display.print(" V");
+
+    display.setCursor(0, 32);
+    display.print("Max: ");
+    display.print(rollingMax, 3);
+    display.print(" V");
+
+    display.setCursor(0, 40);
+    display.print("Min: ");
+    display.print(rollingMin, 3);
+    display.print(" V");
+
     display.display();
 
     delay(1000); // Delay for stability
