@@ -112,23 +112,27 @@ void loop() {
     display.print("Relay: ");
     display.print(relayState ? "ON" : "OFF");
 
-    display.setCursor(0, 16);
+    // Empty line at y=16
+
+    display.setCursor(0, 24);
     display.print("ON:");
     display.print(threshold_on, 2);
     display.print(" OFF:");
     display.print(threshold_off, 2);
 
-    display.setCursor(0, 24);
+    // Empty line at y=32
+
+    display.setCursor(0, 40);
     display.print("Avg: ");
     display.print(rollingAvg, 3);
     display.print(" V");
 
-    display.setCursor(0, 32);
+    display.setCursor(0, 48);
     display.print("Max: ");
     display.print(rollingMax, 3);
     display.print(" V");
 
-    display.setCursor(0, 40);
+    display.setCursor(0, 56);
     display.print("Min: ");
     display.print(rollingMin, 3);
     display.print(" V");
