@@ -16,9 +16,17 @@ bool relayState = false; // Current relay state
 Adafruit_SSD1306 display(128, 64, &Wire, -1);
 
 void setup() {
+    // Initialize serial output for debugging
+    Serial.begin(115200);
+    while (!Serial) {
+        ;
+    }
+
     // Initialize the relay pin
     pinMode(relayPin, OUTPUT);
     digitalWrite(relayPin, LOW); // Ensure relay is off initially
+
+    Serial.println("ASM Pump Driver start");
 
     // Initialize the OLED display
     display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
@@ -28,6 +36,8 @@ void setup() {
     display.setCursor(0, 0);
     display.print("Monitoring current...");
     display.display();
+
+    Serial.println("OLED initialized");
 }
 
 void loop() {
@@ -35,15 +45,26 @@ void loop() {
     int sensorValue = analogRead(sensorPin);
     float current = (sensorValue / 1023.0) * 5.0; // Convert to voltage
 
+    Serial.print("Sensor value: ");
+    Serial.print(sensorValue);
+    Serial.print(" | Voltage: ");
+    Serial.print(current, 3);
+    Serial.print(" V");
+
     // Apply hysteresis logic
     if (!relayState && current > threshold_on) {
         // Turn relay ON if current exceeds upper threshold
         relayState = true;
         digitalWrite(relayPin, HIGH);
+        Serial.println(" | Relay: ON");
     } else if (relayState && current < threshold_off) {
         // Turn relay OFF if current drops below lower threshold
         relayState = false;
         digitalWrite(relayPin, LOW);
+        Serial.println(" | Relay: OFF");
+    } else {
+        Serial.print(" | Relay: ");
+        Serial.println(relayState ? "ON" : "OFF");
     }
 
     // Display the current value and relay state on the OLED
