@@ -21,7 +21,7 @@ void setup() {
     digitalWrite(relayPin, LOW); // Ensure relay is off initially
 
     // Initialize the OLED display
-    display.begin(SSD1306_I2C_ADDRESS, 0x3C);
+    display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
     display.clearDisplay();
     display.setTextSize(1);
     display.setTextColor(SSD1306_WHITE);
