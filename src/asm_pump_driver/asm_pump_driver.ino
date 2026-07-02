@@ -4,7 +4,8 @@
 #include <Adafruit_SSD1306.h>
 
 // Define pin connections
-const int relayPin = 8; // Relay connected to pin D8
+const int relayPin = 8;  // Relay connected to pin D8
+const int ledPin    = 13; // Status LED connected to D13
 const int sensorPin = A0; // ACS724 sensor connected to pin A0
 
 // Hysteresis parameters (adjust values based on actual signal level)
@@ -22,9 +23,11 @@ void setup() {
         ;
     }
 
-    // Initialize the relay pin
+    // Initialize the relay pin and status LED
     pinMode(relayPin, OUTPUT);
     digitalWrite(relayPin, LOW); // Ensure relay is off initially
+    pinMode(ledPin, OUTPUT);
+    digitalWrite(ledPin, LOW);   // Ensure LED is off initially
 
     Serial.println("ASM Pump Driver start");
 
@@ -56,11 +59,13 @@ void loop() {
         // Turn relay ON if current exceeds upper threshold
         relayState = true;
         digitalWrite(relayPin, HIGH);
+        digitalWrite(ledPin, HIGH);
         Serial.println(" | Relay: ON");
     } else if (relayState && current < threshold_off) {
         // Turn relay OFF if current drops below lower threshold
         relayState = false;
         digitalWrite(relayPin, LOW);
+        digitalWrite(ledPin, LOW);
         Serial.println(" | Relay: OFF");
     } else {
         Serial.print(" | Relay: ");
