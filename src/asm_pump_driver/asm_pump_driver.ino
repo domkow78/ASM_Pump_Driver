@@ -11,6 +11,10 @@ const long bandgapReferenceMillivolts = 1068; // Calibrated internal 1.1V refere
 const float zeroOffsetVoltage = 2.345; // ACS712 output voltage at zero current (~Vcc/2)
 const float acs712SensitivityVoltsPerAmp = 0.185; // ACS712 5A version = 185 mV/A
 
+// AC RMS measurement parameters (mains 50 Hz -> 20 ms per period)
+const unsigned long rmsWindowMs = 100; // 5 full periods at 50 Hz
+const float currentDeadZoneAmps = 0.05; // Ignore residual noise below this value
+
 // Hysteresis parameters (adjust values based on actual signal level)
 const float threshold_on = 1.2; // Voltage threshold to turn relay ON
 const float threshold_off = 0.8; // Voltage threshold to turn relay OFF
@@ -58,6 +62,44 @@ float updateAverageVccVoltage(long vccMillivolts) {
     return (vccReadingSum / (float)vccSampleCount) / 1000.0;
 }
 
+// Measure AC RMS current over a fixed window.
+// Vzero is derived dynamically as the mean of the samples, which removes
+// offset drift. Returns RMS current in amperes.
+float measureRmsCurrent(float adcReferenceVoltage) {
+    unsigned long startMs = millis();
+    unsigned long sampleCount = 0;
+    float sum = 0.0;         // Sum of sample voltages (for dynamic Vzero)
+    float sumSquares = 0.0;  // Sum of squared sample voltages
+
+    // First pass: collect sum and sum of squares of the sensor voltage.
+    while (millis() - startMs < rmsWindowMs) {
+        float v = (analogRead(sensorPin) / 1023.0) * adcReferenceVoltage;
+        sum += v;
+        sumSquares += v * v;
+        sampleCount++;
+    }
+
+    if (sampleCount == 0) {
+        return 0.0;
+    }
+
+    float mean = sum / sampleCount;                       // Dynamic Vzero
+    float meanSquares = sumSquares / sampleCount;
+    float variance = meanSquares - (mean * mean);         // RMS of AC component
+    if (variance < 0.0) {
+        variance = 0.0;
+    }
+
+    float vRms = sqrt(variance);
+    float iRms = vRms / acs712SensitivityVoltsPerAmp;
+
+    if (iRms < currentDeadZoneAmps) {
+        iRms = 0.0;
+    }
+
+    return iRms;
+}
+
 void setup() {
     // Initialize serial output for debugging
     Serial.begin(115200);
@@ -90,34 +132,25 @@ void loop() {
     float rawVccVoltage = vccMillivolts / 1000.0;
     float adcReferenceVoltage = updateAverageVccVoltage(vccMillivolts);
 
-    // Read the analog value from the sensor
-    int sensorValue = analogRead(sensorPin);
-    float current = (sensorValue / 1023.0) * adcReferenceVoltage; // Convert to voltage
-    float deltaVoltage = current - zeroOffsetVoltage; // Deviation from zero-current point
-    float currentAmps = deltaVoltage / acs712SensitivityVoltsPerAmp; // Convert to amperes
+    // Measure AC RMS current over the sampling window (dynamic Vzero inside)
+    float currentAmps = measureRmsCurrent(adcReferenceVoltage);
 
-    Serial.print("Sensor value: ");
-    Serial.print(sensorValue);
-    Serial.print(" | Voltage: ");
-    Serial.print(current, 3);
-    Serial.print(" V | Vref(avg): ");
+    Serial.print("Irms: ");
+    Serial.print(currentAmps, 3);
+    Serial.print(" A | Vref(avg): ");
     Serial.print(adcReferenceVoltage, 3);
     Serial.print(" V | Vcc(raw): ");
     Serial.print(rawVccVoltage, 3);
-    Serial.print(" V | dV: ");
-    Serial.print(deltaVoltage, 3);
-    Serial.print(" V | I: ");
-    Serial.print(currentAmps, 3);
-    Serial.print(" A");
+    Serial.print(" V");
 
     // Apply hysteresis logic
-    if (!relayState && current > threshold_on) {
+    if (!relayState && currentAmps > threshold_on) {
         // Turn relay ON if current exceeds upper threshold
         relayState = true;
         digitalWrite(relayPin, HIGH);
         digitalWrite(ledPin, HIGH);
         Serial.println(" | Relay: ON");
-    } else if (relayState && current < threshold_off) {
+    } else if (relayState && currentAmps < threshold_off) {
         // Turn relay OFF if current drops below lower threshold
         relayState = false;
         digitalWrite(relayPin, LOW);
@@ -134,9 +167,9 @@ void loop() {
     display.setTextColor(SSD1306_WHITE);
 
     display.setCursor(0, 0);
-    display.print("Volt: ");
-    display.print(current, 3);
-    display.print(" V");
+    display.print("Irms: ");
+    display.print(currentAmps, 3);
+    display.print(" A");
 
     display.setCursor(0, 8);
     display.print("Vcc: ");
@@ -152,16 +185,7 @@ void loop() {
     display.print(threshold_on, 2);
     display.print(" OFF:");
     display.print(threshold_off, 2);
-
-    display.setCursor(0, 32);
-    display.print("dV: ");
-    display.print(deltaVoltage, 3);
-    display.print(" V");
-
-    display.setCursor(0, 40);
-    display.print("I: ");
-    display.print(currentAmps, 3);
-    display.print(" A");
+    display.print("A");
 
     display.display();
 
