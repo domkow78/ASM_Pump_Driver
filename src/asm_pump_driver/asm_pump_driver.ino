@@ -21,6 +21,13 @@ int       readIndex   = 0;
 int       sampleCount = 0;
 float     readingSum  = 0.0;
 
+// Rolling average for Vcc measurement
+const int VCC_WINDOW_SIZE = 8;
+long      vccReadings[VCC_WINDOW_SIZE];
+int       vccReadIndex   = 0;
+int       vccSampleCount = 0;
+long      vccReadingSum  = 0;
+
 // Create an instance of the OLED display
 Adafruit_SSD1306 display(128, 64, &Wire, -1);
 
@@ -41,6 +48,19 @@ long readVccMillivolts() {
 #else
     return 5000L;
 #endif
+}
+
+float updateAverageVccVoltage(long vccMillivolts) {
+    vccReadingSum -= vccReadings[vccReadIndex];
+    vccReadings[vccReadIndex] = vccMillivolts;
+    vccReadingSum += vccReadings[vccReadIndex];
+    vccReadIndex = (vccReadIndex + 1) % VCC_WINDOW_SIZE;
+
+    if (vccSampleCount < VCC_WINDOW_SIZE) {
+        vccSampleCount++;
+    }
+
+    return (vccReadingSum / (float)vccSampleCount) / 1000.0;
 }
 
 void setup() {
@@ -72,7 +92,8 @@ void setup() {
 
 void loop() {
     long vccMillivolts = readVccMillivolts();
-    float adcReferenceVoltage = vccMillivolts / 1000.0;
+    float rawVccVoltage = vccMillivolts / 1000.0;
+    float adcReferenceVoltage = updateAverageVccVoltage(vccMillivolts);
 
     // Read the analog value from the sensor
     int sensorValue = analogRead(sensorPin);
@@ -82,8 +103,10 @@ void loop() {
     Serial.print(sensorValue);
     Serial.print(" | Voltage: ");
     Serial.print(current, 3);
-    Serial.print(" V | Vref: ");
+    Serial.print(" V | Vref(avg): ");
     Serial.print(adcReferenceVoltage, 3);
+    Serial.print(" V | Vcc(raw): ");
+    Serial.print(rawVccVoltage, 3);
     Serial.print(" V");
 
     // Apply hysteresis logic

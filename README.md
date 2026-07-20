@@ -8,6 +8,7 @@ Aplikacja dla Arduino Nano steruje przekaźnikiem pompy wody na podstawie odczyt
 ### Funkcjonalności:
 - Odczyt sygnału analogowego z ACS712 (`A0`) i przeliczenie na napięcie.
 - Automatyczny pomiar napięcia zasilania Arduino i korekcja przeliczenia ADC.
+- Uśrednianie pomiaru `Vcc`, aby ograniczyć wahania wskazań.
 - Sterowanie przekaźnikiem (`D8`) z użyciem histerezy (oddzielny próg załączenia i wyłączenia).
 - Wyświetlanie na OLED:
 	- aktualnego napięcia z wejścia analogowego,
@@ -59,6 +60,7 @@ Dla tego przypadku:
 Uwagi:
 - mechanizm działa dla klasycznego Arduino Nano z mikrokontrolerem `ATmega328P`,
 - dokładność zależy od tolerancji wewnętrznego źródła odniesienia, więc do pomiarów dokładnych nadal warto porównać wynik z multimetrem,
+- `Vcc` używane do przeliczenia ADC jest uśredniane w oknie 8 ostatnich pomiarów,
 - bieżące `Vcc` jest pokazywane na OLED i w `Serial`.
 
 ### Wymagane biblioteki:
