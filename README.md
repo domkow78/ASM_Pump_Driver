@@ -43,6 +43,19 @@ Dla pierwszego uruchomienia zmierzono:
 
 Układ powinien teraz sam reagować na zmianę napięcia zasilania i odpowiednio korygować przeliczanie wartości z wejścia `A0`.
 
+Ponieważ wewnętrzne źródło odniesienia AVR nie ma idealnie `1.100 V`, w kodzie dodano kalibrację stałej:
+- `bandgapReferenceMillivolts = 1068`
+
+Wartość została wyliczona z pomiaru:
+- rzeczywiste `Vcc`: `4.689 V`,
+- wskazanie OLED przed kalibracją: `4.829 V`.
+
+Wzór do kolejnej korekty:
+- `nowa_stala = stara_stala * (Vcc_rzeczywiste / Vcc_wyswietlane)`
+
+Dla tego przypadku:
+- `1068 ≈ 1100 * (4.689 / 4.829)`
+
 Uwagi:
 - mechanizm działa dla klasycznego Arduino Nano z mikrokontrolerem `ATmega328P`,
 - dokładność zależy od tolerancji wewnętrznego źródła odniesienia, więc do pomiarów dokładnych nadal warto porównać wynik z multimetrem,

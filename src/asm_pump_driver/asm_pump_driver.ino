@@ -7,6 +7,7 @@
 const int relayPin = 8;  // Relay connected to pin D8
 const int ledPin    = 13; // Status LED connected to D13
 const int sensorPin = A0; // ACS712 sensor connected to pin A0
+const long bandgapReferenceMillivolts = 1068; // Calibrated internal 1.1V reference for this Nano
 
 // Hysteresis parameters (adjust values based on actual signal level)
 const float threshold_on = 1.2; // Voltage threshold to turn relay ON
@@ -36,7 +37,7 @@ long readVccMillivolts() {
     uint8_t high = ADCH;
     long reading = (high << 8) | low;
 
-    return 1125300L / reading;
+    return (bandgapReferenceMillivolts * 1023L) / reading;
 #else
     return 5000L;
 #endif
