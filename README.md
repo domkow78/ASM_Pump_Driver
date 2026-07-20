@@ -24,7 +24,7 @@ Aplikacja dla Arduino Nano steruje przekaźnikiem pompy wody na podstawie pomiar
 
 ### Działanie:
 1. Aplikacja inicjalizuje wyświetlacz OLED oraz wyjście przekaźnika.
-2. W pętli głównej przez okno ~`100 ms` (5 okresów `50 Hz`) szybko próbkuje sygnał z ACS724.
+2. W pętli głównej przez okno ~`200 ms` (10 okresów `50 Hz`) szybko próbkuje sygnał z ACS724.
 3. Z próbek wyznacza dynamicznie `Vzero` (średnia) oraz prąd skuteczny `Irms`.
 4. Logika histerezy działa na dwóch progach prądu:
 	 - `threshold_on` — próg załączenia przekaźnika,
@@ -33,10 +33,22 @@ Aplikacja dla Arduino Nano steruje przekaźnikiem pompy wody na podstawie pomiar
 6. OLED pokazuje bieżący prąd `Irms`, `Vcc` oraz stan przekaźnika (`ON`/`OFF`).
 
 ### Strojenie progów histerezy:
-Progi są wyrażone w amperach `RMS`, dlatego należy dobrać je do rzeczywistego poboru pompy:
+Progi są wyrażone w amperach `RMS`, dlatego należy dobrać je do rzeczywistego poboru pompy.
+
+Pompa pracuje w zakresie mocy `12–38 W` na `230 V AC`, co odpowiada prądowi skutecznemu:
+- `12 W` → `Irms ≈ 0.052 A`
+- `38 W` → `Irms ≈ 0.165 A`
+
+Progi muszą być poniżej najniższego prądu pracy (`~0.052 A`), dlatego ustawiono:
+- `threshold_on = 0.035` — pewne wykrycie pracy nawet przy `12 W`,
+- `threshold_off = 0.02` — wyłączenie dopiero, gdy pompa faktycznie stoi.
+
+Dodatkowe wskazówki:
 - Zwiększ `threshold_on`, jeśli przekaźnik załącza się przy zbyt małym prądzie.
 - Zmniejsz `threshold_off`, jeśli przekaźnik wyłącza się zbyt wcześnie.
 - Zachowaj warunek: `threshold_on > threshold_off`.
+
+> Uwaga: przy `12 W` sygnał to tylko ok. `21 mV RMS` na ACS724 (kilka LSB ADC), dlatego okno pomiarowe wydłużono do `200 ms`, aby lepiej uśrednić pomiar przy niskich mocach.
 
 ### Pomiar AC RMS, Vzero i czułość ACS724:
 Czujnik ACS724 przy zerowym prądzie daje na wyjściu napięcie około połowy zasilania (`~Vcc/2`). Przy prądzie przemiennym sygnał oscyluje wokół tego punktu, dlatego pojedynczy odczyt nie ma sensu — liczona jest wartość skuteczna `RMS`.
