@@ -8,6 +8,7 @@ const int relayPin = 8;  // Relay connected to pin D8
 const int ledPin    = 13; // Status LED connected to D13
 const int sensorPin = A0; // ACS712 sensor connected to pin A0
 const long bandgapReferenceMillivolts = 1068; // Calibrated internal 1.1V reference for this Nano
+const float zeroOffsetVoltage = 2.345; // ACS712 output voltage at zero current (~Vcc/2)
 
 // Hysteresis parameters (adjust values based on actual signal level)
 const float threshold_on = 1.2; // Voltage threshold to turn relay ON
@@ -98,6 +99,7 @@ void loop() {
     // Read the analog value from the sensor
     int sensorValue = analogRead(sensorPin);
     float current = (sensorValue / 1023.0) * adcReferenceVoltage; // Convert to voltage
+    float deltaVoltage = current - zeroOffsetVoltage; // Deviation from zero-current point
 
     Serial.print("Sensor value: ");
     Serial.print(sensorValue);
@@ -107,6 +109,8 @@ void loop() {
     Serial.print(adcReferenceVoltage, 3);
     Serial.print(" V | Vcc(raw): ");
     Serial.print(rawVccVoltage, 3);
+    Serial.print(" V | dV: ");
+    Serial.print(deltaVoltage, 3);
     Serial.print(" V");
 
     // Apply hysteresis logic
@@ -171,7 +175,10 @@ void loop() {
     display.print(" OFF:");
     display.print(threshold_off, 2);
 
-    // Empty line at y=32
+    display.setCursor(0, 32);
+    display.print("dV: ");
+    display.print(deltaVoltage, 3);
+    display.print(" V");
 
     display.setCursor(0, 40);
     display.print("Avg: ");
