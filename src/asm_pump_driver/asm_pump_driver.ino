@@ -6,10 +6,10 @@
 // Define pin connections
 const int relayPin = 8;  // Relay connected to pin D8
 const int ledPin    = 13; // Status LED connected to D13
-const int sensorPin = A0; // ACS712 sensor connected to pin A0
+const int sensorPin = A0; // ACS724 -2.5A..+2.5A (Pololu 4040) connected to pin A0
 const long bandgapReferenceMillivolts = 1068; // Calibrated internal 1.1V reference for this Nano
-const float zeroOffsetVoltage = 2.345; // ACS712 output voltage at zero current (~Vcc/2)
-const float acs712SensitivityVoltsPerAmp = 0.185; // ACS712 5A version = 185 mV/A
+const float zeroOffsetVoltage = 2.345; // ACS724 output voltage at zero current (~Vcc/2)
+const float acs724SensitivityVoltsPerAmp = 0.400; // ACS724 +/-2.5A (Pololu 4040) = 400 mV/A
 
 // AC RMS measurement parameters (mains 50 Hz -> 20 ms per period)
 const unsigned long rmsWindowMs = 100; // 5 full periods at 50 Hz
@@ -91,7 +91,7 @@ float measureRmsCurrent(float adcReferenceVoltage) {
     }
 
     float vRms = sqrt(variance);
-    float iRms = vRms / acs712SensitivityVoltsPerAmp;
+    float iRms = vRms / acs724SensitivityVoltsPerAmp;
 
     if (iRms < currentDeadZoneAmps) {
         iRms = 0.0;
