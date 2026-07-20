@@ -6,7 +6,7 @@
 // Define pin connections
 const int relayPin = 8;  // Relay connected to pin D8
 const int ledPin    = 13; // Status LED connected to D13
-const int sensorPin = A0; // ACS724 sensor connected to pin A0
+const int sensorPin = A0; // ACS712 sensor connected to pin A0
 
 // Hysteresis parameters (adjust values based on actual signal level)
 const float threshold_on = 1.2; // Voltage threshold to turn relay ON
@@ -22,6 +22,25 @@ float     readingSum  = 0.0;
 
 // Create an instance of the OLED display
 Adafruit_SSD1306 display(128, 64, &Wire, -1);
+
+long readVccMillivolts() {
+#if defined(__AVR_ATmega328P__) || defined(__AVR_ATmega168__)
+    ADMUX = _BV(REFS0) | _BV(MUX3) | _BV(MUX2) | _BV(MUX1);
+    delay(2);
+    ADCSRA |= _BV(ADSC);
+    while (bit_is_set(ADCSRA, ADSC)) {
+        ;
+    }
+
+    uint8_t low = ADCL;
+    uint8_t high = ADCH;
+    long reading = (high << 8) | low;
+
+    return 1125300L / reading;
+#else
+    return 5000L;
+#endif
+}
 
 void setup() {
     // Initialize serial output for debugging
@@ -51,14 +70,19 @@ void setup() {
 }
 
 void loop() {
+    long vccMillivolts = readVccMillivolts();
+    float adcReferenceVoltage = vccMillivolts / 1000.0;
+
     // Read the analog value from the sensor
     int sensorValue = analogRead(sensorPin);
-    float current = (sensorValue / 1023.0) * 5.0; // Convert to voltage
+    float current = (sensorValue / 1023.0) * adcReferenceVoltage; // Convert to voltage
 
     Serial.print("Sensor value: ");
     Serial.print(sensorValue);
     Serial.print(" | Voltage: ");
     Serial.print(current, 3);
+    Serial.print(" V | Vref: ");
+    Serial.print(adcReferenceVoltage, 3);
     Serial.print(" V");
 
     // Apply hysteresis logic
@@ -109,10 +133,13 @@ void loop() {
     display.print(" V");
 
     display.setCursor(0, 8);
+    display.print("Vcc: ");
+    display.print(adcReferenceVoltage, 3);
+    display.print(" V");
+
+    display.setCursor(0, 16);
     display.print("Relay: ");
     display.print(relayState ? "ON" : "OFF");
-
-    // Empty line at y=16
 
     display.setCursor(0, 24);
     display.print("ON:");
