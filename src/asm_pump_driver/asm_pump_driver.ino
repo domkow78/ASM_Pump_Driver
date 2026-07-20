@@ -13,11 +13,12 @@ const float acs724SensitivityVoltsPerAmp = 0.400; // ACS724 +/-2.5A (Pololu 4040
 
 // AC RMS measurement parameters (mains 50 Hz -> 20 ms per period)
 const unsigned long rmsWindowMs = 100; // 5 full periods at 50 Hz
-const float currentDeadZoneAmps = 0.05; // Ignore residual noise below this value
+const float currentDeadZoneAmps = 0.01; // Ignore residual noise below this value
 
-// Hysteresis parameters (adjust values based on actual signal level)
-const float threshold_on = 1.2; // Voltage threshold to turn relay ON
-const float threshold_off = 0.8; // Voltage threshold to turn relay OFF
+// Hysteresis parameters in amperes RMS.
+// Estimated for a ~20W BLDC pump on 230V AC: Irms ~ 20/230 ~ 0.087 A.
+const float threshold_on = 0.05; // Current (A) to turn relay ON (pump running)
+const float threshold_off = 0.03; // Current (A) to turn relay OFF (pump stopped)
 bool relayState = false; // Current relay state
 
 // Rolling average for Vcc measurement
