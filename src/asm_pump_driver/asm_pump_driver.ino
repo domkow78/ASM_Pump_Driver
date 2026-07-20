@@ -9,18 +9,12 @@ const int ledPin    = 13; // Status LED connected to D13
 const int sensorPin = A0; // ACS712 sensor connected to pin A0
 const long bandgapReferenceMillivolts = 1068; // Calibrated internal 1.1V reference for this Nano
 const float zeroOffsetVoltage = 2.345; // ACS712 output voltage at zero current (~Vcc/2)
+const float acs712SensitivityVoltsPerAmp = 0.185; // ACS712 5A version = 185 mV/A
 
 // Hysteresis parameters (adjust values based on actual signal level)
 const float threshold_on = 1.2; // Voltage threshold to turn relay ON
 const float threshold_off = 0.8; // Voltage threshold to turn relay OFF
 bool relayState = false; // Current relay state
-
-// Rolling statistics (sliding window of 10 samples)
-const int WINDOW_SIZE = 10;
-float     readings[WINDOW_SIZE];
-int       readIndex   = 0;
-int       sampleCount = 0;
-float     readingSum  = 0.0;
 
 // Rolling average for Vcc measurement
 const int VCC_WINDOW_SIZE = 8;
@@ -100,6 +94,7 @@ void loop() {
     int sensorValue = analogRead(sensorPin);
     float current = (sensorValue / 1023.0) * adcReferenceVoltage; // Convert to voltage
     float deltaVoltage = current - zeroOffsetVoltage; // Deviation from zero-current point
+    float currentAmps = deltaVoltage / acs712SensitivityVoltsPerAmp; // Convert to amperes
 
     Serial.print("Sensor value: ");
     Serial.print(sensorValue);
@@ -111,7 +106,9 @@ void loop() {
     Serial.print(rawVccVoltage, 3);
     Serial.print(" V | dV: ");
     Serial.print(deltaVoltage, 3);
-    Serial.print(" V");
+    Serial.print(" V | I: ");
+    Serial.print(currentAmps, 3);
+    Serial.print(" A");
 
     // Apply hysteresis logic
     if (!relayState && current > threshold_on) {
@@ -130,25 +127,6 @@ void loop() {
         Serial.print(" | Relay: ");
         Serial.println(relayState ? "ON" : "OFF");
     }
-
-    // Compute rolling statistics
-    readingSum -= readings[readIndex];
-    readings[readIndex] = current;
-    readingSum += current;
-    readIndex = (readIndex + 1) % WINDOW_SIZE;
-    if (sampleCount < WINDOW_SIZE) sampleCount++;
-
-    float rollingAvg = readingSum / sampleCount;
-    float rollingMax = readings[0];
-    float rollingMin = readings[0];
-    for (int i = 1; i < sampleCount; i++) {
-        if (readings[i] > rollingMax) rollingMax = readings[i];
-        if (readings[i] < rollingMin) rollingMin = readings[i];
-    }
-
-    Serial.print("Stats | Avg: "); Serial.print(rollingAvg, 3);
-    Serial.print(" Max: ");        Serial.print(rollingMax, 3);
-    Serial.print(" Min: ");        Serial.println(rollingMin, 3);
 
     // Update OLED display
     display.clearDisplay();
@@ -181,19 +159,9 @@ void loop() {
     display.print(" V");
 
     display.setCursor(0, 40);
-    display.print("Avg: ");
-    display.print(rollingAvg, 3);
-    display.print(" V");
-
-    display.setCursor(0, 48);
-    display.print("Max: ");
-    display.print(rollingMax, 3);
-    display.print(" V");
-
-    display.setCursor(0, 56);
-    display.print("Min: ");
-    display.print(rollingMin, 3);
-    display.print(" V");
+    display.print("I: ");
+    display.print(currentAmps, 3);
+    display.print(" A");
 
     display.display();
 
