@@ -172,13 +172,13 @@ void loop() {
     display.print(adcVoltage, 3);
     display.print("V)");
 
-    // Line 3: relay state
-    display.setCursor(0, 16);
+    // Line 7: relay state
+    display.setCursor(0, 48);
     display.print("Relay: ");
     display.print(relayState ? "ON" : "OFF");
 
-    // Line 4: hysteresis thresholds
-    display.setCursor(0, 24);
+    // Line 8: hysteresis thresholds
+    display.setCursor(0, 56);
     display.print("ON:");
     display.print(threshold_on, 2);
     display.print(" OFF:");
