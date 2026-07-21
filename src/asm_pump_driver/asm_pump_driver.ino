@@ -130,58 +130,54 @@ void setup() {
 }
 
 void loop() {
+    // 1. Measure supply voltage Vcc
     long vccMillivolts = readVccMillivolts();
     float rawVccVoltage = vccMillivolts / 1000.0;
     float adcReferenceVoltage = updateAverageVccVoltage(vccMillivolts);
 
-    // Measure AC RMS current over the sampling window (dynamic Vzero inside)
-    float currentAmps = measureRmsCurrent(adcReferenceVoltage);
+    // 2. Direct raw ADC reading on the sensor pin (control measurement)
+    int rawAdcValue = analogRead(sensorPin);
+    float adcVoltage = (rawAdcValue / 1023.0) * adcReferenceVoltage;
 
-    Serial.print("Irms: ");
-    Serial.print(currentAmps, 3);
-    Serial.print(" A | Vref(avg): ");
+    // NOTE: current (RMS) measurement temporarily disabled
+    // float currentAmps = measureRmsCurrent(adcReferenceVoltage);
+
+    Serial.print("Vcc(avg): ");
     Serial.print(adcReferenceVoltage, 3);
     Serial.print(" V | Vcc(raw): ");
     Serial.print(rawVccVoltage, 3);
-    Serial.print(" V");
-
-    // Apply hysteresis logic
-    if (!relayState && currentAmps > threshold_on) {
-        // Turn relay ON if current exceeds upper threshold
-        relayState = true;
-        digitalWrite(relayPin, HIGH);
-        digitalWrite(ledPin, HIGH);
-        Serial.println(" | Relay: ON");
-    } else if (relayState && currentAmps < threshold_off) {
-        // Turn relay OFF if current drops below lower threshold
-        relayState = false;
-        digitalWrite(relayPin, LOW);
-        digitalWrite(ledPin, LOW);
-        Serial.println(" | Relay: OFF");
-    } else {
-        Serial.print(" | Relay: ");
-        Serial.println(relayState ? "ON" : "OFF");
-    }
+    Serial.print(" V | ADC: ");
+    Serial.print(rawAdcValue);
+    Serial.print(" (");
+    Serial.print(adcVoltage, 3);
+    Serial.print(" V) | Relay: ");
+    Serial.println(relayState ? "ON" : "OFF");
 
     // Update OLED display
     display.clearDisplay();
     display.setTextSize(1);
     display.setTextColor(SSD1306_WHITE);
 
+    // Line 1: Vcc supply voltage
     display.setCursor(0, 0);
-    display.print("Irms: ");
-    display.print(currentAmps, 3);
-    display.print(" A");
-
-    display.setCursor(0, 8);
     display.print("Vcc: ");
     display.print(adcReferenceVoltage, 3);
     display.print(" V");
 
+    // Line 2: direct raw ADC reading (control measurement)
+    display.setCursor(0, 8);
+    display.print("ADC: ");
+    display.print(rawAdcValue);
+    display.print(" (");
+    display.print(adcVoltage, 3);
+    display.print("V)");
+
+    // Line 3: relay state
     display.setCursor(0, 16);
     display.print("Relay: ");
     display.print(relayState ? "ON" : "OFF");
 
+    // Line 4: hysteresis thresholds
     display.setCursor(0, 24);
     display.print("ON:");
     display.print(threshold_on, 2);
