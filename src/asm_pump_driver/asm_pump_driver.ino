@@ -22,6 +22,18 @@ const float threshold_on = 0.035; // Current (A) to turn relay ON (pump running)
 const float threshold_off = 0.02; // Current (A) to turn relay OFF (pump stopped)
 bool relayState = false; // Current relay state
 
+// --- Simple activity detection (mean absolute deviation) ---
+// Instead of computing a precise RMS current, we sample the sensor fast,
+// subtract the resting value (~Vcc/2) and average the absolute deviation.
+// This is robust to inverter frequency changes and needs no accurate
+// current calibration. If the averaged deviation exceeds a threshold,
+// the pump is considered running.
+const unsigned long activityWindowMs = 30;   // Averaging window (20-50 ms)
+const unsigned long activitySampleIntervalUs = 250; // ~4 kHz sampling (2-5 kHz)
+// Thresholds are expressed in ADC counts of mean absolute deviation.
+const float activityThresholdOn  = 8.0; // Deviation to turn relay ON (pump running)
+const float activityThresholdOff = 4.0; // Deviation to turn relay OFF (pump stopped)
+
 // Rolling average for Vcc measurement
 const int VCC_WINDOW_SIZE = 8;
 long      vccReadings[VCC_WINDOW_SIZE];
@@ -102,6 +114,44 @@ float measureRmsCurrent(float adcReferenceVoltage) {
     return iRms;
 }
 
+// Simple pump-activity detection based on mean absolute deviation.
+// 1. Sample the ADC fast (a few kHz).
+// 2. Subtract the resting value (~Vcc/2, computed as the mean of samples).
+// 3. Accumulate the absolute deviation of each sample.
+// 4. Average over a short window (20-50 ms).
+// Returns the mean absolute deviation in ADC counts.
+float measurePumpActivity() {
+    unsigned long startMs = millis();
+    unsigned long sampleCount = 0;
+    long sum = 0;               // Sum of raw ADC values (for resting value)
+    int samples[300];           // Buffer for one window (max ~300 samples)
+    const int maxSamples = 300;
+
+    // First pass: collect raw samples at a fixed rate.
+    while ((millis() - startMs < activityWindowMs) && (sampleCount < maxSamples)) {
+        int raw = analogRead(sensorPin);
+        samples[sampleCount] = raw;
+        sum += raw;
+        sampleCount++;
+        delayMicroseconds(activitySampleIntervalUs);
+    }
+
+    if (sampleCount == 0) {
+        return 0.0;
+    }
+
+    // Resting value = mean of the samples (dynamic, removes offset drift).
+    float mean = (float)sum / sampleCount;
+
+    // Second pass: accumulate absolute deviation from the resting value.
+    float sumAbsDeviation = 0.0;
+    for (unsigned long i = 0; i < sampleCount; i++) {
+        sumAbsDeviation += fabs(samples[i] - mean);
+    }
+
+    return sumAbsDeviation / sampleCount;
+}
+
 void setup() {
     // Initialize serial output for debugging
     Serial.begin(115200);
@@ -139,6 +189,20 @@ void loop() {
     int rawAdcValue = analogRead(sensorPin);
     float adcVoltage = (rawAdcValue / 1023.0) * adcReferenceVoltage;
 
+    // 3. Pump activity detection (mean absolute deviation, no RMS needed)
+    float activity = measurePumpActivity();
+
+    // Apply hysteresis logic on the activity value
+    if (!relayState && activity > activityThresholdOn) {
+        relayState = true;
+        digitalWrite(relayPin, HIGH);
+        digitalWrite(ledPin, HIGH);
+    } else if (relayState && activity < activityThresholdOff) {
+        relayState = false;
+        digitalWrite(relayPin, LOW);
+        digitalWrite(ledPin, LOW);
+    }
+
     // NOTE: current (RMS) measurement temporarily disabled
     // float currentAmps = measureRmsCurrent(adcReferenceVoltage);
 
@@ -150,7 +214,9 @@ void loop() {
     Serial.print(rawAdcValue);
     Serial.print(" (");
     Serial.print(adcVoltage, 3);
-    Serial.print(" V) | Relay: ");
+    Serial.print(" V) | Act: ");
+    Serial.print(activity, 2);
+    Serial.print(" | Relay: ");
     Serial.println(relayState ? "ON" : "OFF");
 
     // Update OLED display
@@ -172,6 +238,11 @@ void loop() {
     display.print(adcVoltage, 3);
     display.print("V)");
 
+    // Line 3: pump activity (mean absolute deviation)
+    display.setCursor(0, 16);
+    display.print("Act: ");
+    display.print(activity, 2);
+
     // Line 7: relay state
     display.setCursor(0, 48);
     display.print("Relay: ");
@@ -180,10 +251,9 @@ void loop() {
     // Line 8: hysteresis thresholds
     display.setCursor(0, 56);
     display.print("ON:");
-    display.print(threshold_on, 2);
+    display.print(activityThresholdOn, 1);
     display.print(" OFF:");
-    display.print(threshold_off, 2);
-    display.print("A");
+    display.print(activityThresholdOff, 1);
 
     display.display();
 
